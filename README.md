@@ -2,7 +2,7 @@
 
 Simulação interativa do movimento browniano feita com HTML, Canvas e JavaScript. Uma partícula grande (o "pólen", em amarelo) fica imersa num fluido de milhares de partículas pequenas (as moléculas de "água"). A agitação térmica das moléculas faz o pólen se mover de forma irregular, e a sua trajetória é desenhada em vermelho.
 
-🔗 **Acesse a simulação:** https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/
+🔗 **Acesse a simulação:** https://augusto-schf.github.io/movimento_browniano/
 
 ## Contexto acadêmico
 
