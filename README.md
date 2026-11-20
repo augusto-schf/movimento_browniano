@@ -2,13 +2,19 @@
 
 Simulação interativa do movimento browniano feita com HTML, Canvas e JavaScript. Uma partícula grande (o "pólen", em amarelo) fica imersa num fluido de milhares de partículas pequenas (as moléculas de "água"). A agitação térmica das moléculas faz o pólen se mover de forma irregular, e a sua trajetória é desenhada em vermelho.
 
-🔗 **Acesse a simulação:** https://augusto-schf.github.io/movimento_browniano/
+🔗 **Acesse a simulação:** https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/
 
 ## Contexto acadêmico
 
-Este trabalho foi desenvolvido para a disciplina de **Desenvolvimento de Narrativas Textuais**, sob orientação da **Profa. Dra. Cilene Rodrigues**, no **IMPA Tech**, no Rio de Janeiro, em 2026.
+Este trabalho foi desenvolvido em conjunto por **Augusto S. Huff**, **Lourenzo Balonenkr** e **Alexandre A. Amaral** para a disciplina de **Desenvolvimento de Narrativas Textuais**, sob orientação da **Profa. Dra. Cilene Rodrigues**, no **IMPA Tech**, no Rio de Janeiro, em 2026.
 
 A simulação ilustra o fenômeno estudado nos trabalhos de Albert Einstein (1905) e Jean Perrin (1908–1909). Esses trabalhos mostraram que o movimento errático de partículas suspensas em um líquido é causado pelos choques com as moléculas do fluido, o que deu evidência experimental da existência de átomos e moléculas.
+
+## Autores
+
+- Augusto S. Huff
+- Lourenzo Balonenkr
+- Alexandre A. Amaral
 
 ## Como usar
 
