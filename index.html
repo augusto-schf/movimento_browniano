@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movimento Browniano</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 16px;
+    background: #111; color: #ddd;
+    font-family: system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  canvas { background: #000; border: 1px solid #333; max-width: 100%; height: auto; }
+  .controles { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
+  button {
+    background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px;
+    padding: 6px 14px; cursor: pointer; font-size: 0.9rem;
+  }
+  button:hover { background: #2c2c2c; }
+  label { font-size: 0.9rem; display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<canvas id="tela" width="800" height="600"></canvas>
+
+<div class="controles">
+  <button id="btnPausar">Pausar</button>
+  <button id="btnReiniciar">Reiniciar</button>
+  <button id="btnAgua">Esconder água</button>
+  <label>Passos por quadro
+    <input id="passos" type="range" min="1" max="20" value="5">
+    <output id="passosVal">5</output>
+  </label>
+</div>
+
+<script>
+// ===================== Parâmetros (iguais ao main.py) =====================
+const largura = 800, altura = 600;
+const oneOverDensity = 10;   // espaçamento da grade de moléculas
+const fps = 300;             // passos de simulação por segundo (dt = 1/fps)
+const dt = 1 / fps;
+
+// ===================== Classe Particle (Particle.py) =====================
+class Particle {
+  constructor(x, y, size, mass, largura, altura) {
+    this.x = x; this.y = y; this.size = size; this.mass = mass;
+    this.vx = 0; this.vy = 0;
+    this.posList = [[x, y]];
+    this.largura = largura; this.altura = altura;
+    this.tipo = "agua";
+  }
+
+  draw(ctx) {
+    if (this.tipo === "polen") {
+      ctx.fillStyle = "rgb(255,255,0)";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
+      ctx.fill();
+    } else {
+      // círculo de raio 1 ≈ quadrado 2x2 (bem mais rápido de desenhar)
+      ctx.fillRect(this.x - 1, this.y - 1, 2, 2);
+    }
+  }
+
+  drawPath(ctx) {
+    const pts = this.posList;
+    ctx.strokeStyle = "rgb(255,0,0)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.lineTo(this.x, this.y);
+    ctx.stroke();
+  }
+
+  distance2to(other) {
+    const dx = this.x - other.x, dy = this.y - other.y;
+    return dx * dx + dy * dy;
+  }
+
+  step(dt) {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    // reflexão nas paredes (x e y tratados de forma independente)
+    if (this.x < 0)                 { this.x = 0;           this.vx *= -1; }
+    else if (this.x > this.largura) { this.x = this.largura; this.vx *= -1; }
+    if (this.y < 0)                 { this.y = 0;           this.vy *= -1; }
+    else if (this.y > this.altura)  { this.y = this.altura;  this.vy *= -1; }
+  }
+}
+
+// ===================== Funções auxiliares =====================
+// Normal(0, sigma) pelo método de Box–Muller (equivalente a random.gauss)
+function gauss(mu, sigma) {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function velocidadeBoltzmann(massa, temperatura, k = 1.0) {
+  const sigma = Math.sqrt(k * temperatura / massa);
+  return [gauss(0, sigma), gauss(0, sigma)];
+}
+
+// ===================== Estado da simulação =====================
+const btnPausar = document.getElementById("btnPausar");
+const btnAgua = document.getElementById("btnAgua");
+let particles, polen, passosDecorridos, rodando, terminou;
+let mostrarAgua = true;
+
+function iniciar() {
+  particles = [];
+  for (let x = 0; x < Math.floor(largura / oneOverDensity) - 1; x++) {
+    for (let y = 0; y < Math.floor(altura / oneOverDensity) - 1; y++) {
+      const [vx, vy] = velocidadeBoltzmann(1, 273 * 10, 10);
+      const p = new Particle((x + 1) * oneOverDensity, (y + 1) * oneOverDensity, 1, 2, largura, altura);
+      p.vx = vx; p.vy = vy;
+      particles.push(p);
+    }
+  }
+  polen = new Particle(largura / 2, altura / 2, 15, 50, largura, altura);
+  polen.tipo = "polen";
+  particles.push(polen);
+
+  passosDecorridos = 0;
+  rodando = true;
+  terminou = false;
+  btnPausar.textContent = "Pausar";
+}
+
+// Colisão elástica entre `particle` e `other` (mesma lógica do main.py)
+function colidir(particle, other) {
+  const dx = particle.x - other.x;
+  const dy = particle.y - other.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+
+  const nx = dx / dist, ny = dy / dist;
+  const mTotal = particle.mass + other.mass;
+
+  // separa as partículas sobrepostas, proporcional às massas
+  const overlap = particle.size + other.size - dist;
+  particle.x += nx * overlap * (other.mass / mTotal);
+  particle.y += ny * overlap * (other.mass / mTotal);
+  other.x    -= nx * overlap * (particle.mass / mTotal);
+  other.y    -= ny * overlap * (particle.mass / mTotal);
+
+  // troca de momento ao longo da normal, se estão se aproximando
+  const approach = (particle.vx - other.vx) * nx + (particle.vy - other.vy) * ny;
+  if (approach < 0) {
+    const j1 = 2 * other.mass / mTotal * approach;
+    const j2 = 2 * particle.mass / mTotal * approach;
+    particle.vx -= j1 * nx; particle.vy -= j1 * ny;
+    other.vx    += j2 * nx; other.vy    += j2 * ny;
+  }
+}
+
+// Um passo de simulação (equivale a uma volta do while do main.py, sem o desenho)
+function passo() {
+  passosDecorridos++;
+  for (const particle of particles) {
+    particle.step(dt);
+    if (particle.tipo === "agua") continue;   // só o pólen verifica colisões
+
+    for (const other of particles) {
+      if (other === particle) continue;
+      const r = particle.size + other.size;
+      if (particle.distance2to(other) <= r * r) colidir(particle, other);
+    }
+  }
+
+  if (passosDecorridos % 10 === 0) polen.posList.push([polen.x, polen.y]);
+
+  // para quando o pólen chega perto da borda
+  if (polen.x < 10 || polen.x > largura - 10 || polen.y < 10 || polen.y > altura - 10) {
+    rodando = false;
+    terminou = true;
+    btnPausar.textContent = "Continuar";
+  }
+}
+
+// ===================== Desenho =====================
+const tela = document.getElementById("tela");
+const ctx = tela.getContext("2d");
+
+function desenhar() {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, largura, altura);
+
+  if (mostrarAgua) {
+    ctx.fillStyle = "rgb(200,200,255)";
+    for (const p of particles) if (p.tipo === "agua") p.draw(ctx);
+  }
+
+  // linha roxa: deslocamento horizontal do pólen em relação ao centro
+  ctx.strokeStyle = "purple";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(largura / 2, altura / 2);
+  ctx.lineTo(polen.x, altura / 2);
+  ctx.stroke();
+
+  polen.draw(ctx);
+  polen.drawPath(ctx);
+}
+
+// ===================== Loop principal e controles =====================
+const sliderPassos = document.getElementById("passos");
+const passosVal = document.getElementById("passosVal");
+sliderPassos.addEventListener("input", () => passosVal.textContent = sliderPassos.value);
+
+function loop() {
+  if (rodando) {
+    const n = parseInt(sliderPassos.value, 10);
+    for (let i = 0; i < n && rodando; i++) passo();
+  }
+  desenhar();
+  requestAnimationFrame(loop);
+}
+
+btnPausar.addEventListener("click", () => {
+  if (terminou) return;
+  rodando = !rodando;
+  btnPausar.textContent = rodando ? "Pausar" : "Continuar";
+});
+document.getElementById("btnReiniciar").addEventListener("click", iniciar);
+btnAgua.addEventListener("click", () => {
+  mostrarAgua = !mostrarAgua;
+  btnAgua.textContent = mostrarAgua ? "Esconder água" : "Mostrar água";
+});
+
+iniciar();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
